@@ -1,6 +1,6 @@
 # Maintainer: Natanael Copa <ncopa@alpinelinux.org>
 pkgname=gradm-improved
-pkgver=3.1.201608131257
+pkgver=3.1.201708012022
 _ver=${pkgver/.20/-20}
 pkgrel=0
 pkgdesc="administrative utility for grsecurity kernels"
