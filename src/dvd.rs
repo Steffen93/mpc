@@ -136,6 +136,7 @@ pub fn read_from_dvd(dvd_path: &str, local_path: &str) -> DvdStatus {
             })
         },
         Err(_) => {
+            println!("Error opening file at path {}", local_path);
             DvdStatus::Error
         }
     }

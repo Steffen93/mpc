@@ -27,7 +27,7 @@ use rustc_serialize::{Decodable, Encodable};
 pub const THREADS: usize = 8;
 pub const DIRECTORY_PREFIX: &'static str = "/";
 pub const ASK_USER_TO_RECORD_HASHES: bool = false;
-const COORDINATOR_ADDR: &'static str = "mpc847619423.z.cash:65530";
+const COORDINATOR_ADDR: &'static str = "0.0.0.0:65530";
 
 struct ConnectionHandler {
     peerid: [u8; 8],
@@ -183,7 +183,7 @@ impl ConnectionHandler {
 
 fn main() {
     prompt("Press [ENTER] when you're ready to perform diagnostics of the DVD drive.");
-    perform_diagnostics();
+    //perform_diagnostics();
     prompt("Diagnostics complete. Press [ENTER] when you're ready to begin the ceremony.");
 
     let mut handler = ConnectionHandler::new();
