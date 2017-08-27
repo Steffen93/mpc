@@ -11,8 +11,11 @@ extern crate byteorder;
 mod protocol;
 use self::protocol::*;
 
-mod dvd;
-use self::dvd::*;
+//mod dvd;
+//use self::dvd::*;
+
+mod file;
+use self::file::*;
 
 use rand::{SeedableRng, Rng};
 use std::fs::{File};
@@ -65,9 +68,9 @@ fn get_entropy() -> [u32; 8] {
 }
 
 fn main() {
-    prompt("Press [ENTER] when you're ready to perform diagnostics of the DVD drive.");
+    // prompt("Press [ENTER] when you're ready to perform diagnostics of the DVD drive.");
     // perform_diagnostics();
-    prompt("Diagnostics complete. Press [ENTER] when you're ready to begin the ceremony.");
+    prompt("Press [ENTER] when you're ready to begin the ceremony.");
 
     let mut chacha_rng = rand::chacha::ChaChaRng::from_seed(&get_entropy());
 
@@ -75,13 +78,13 @@ fn main() {
     let pubkey = privkey.pubkey(&mut chacha_rng);
     let comm = pubkey.hash();
 
-    let (hash_of_commitments, mut stage1, prev_msg_hash): (Digest512, Stage1Contents, Digest256) = read_disc(
+    let (hash_of_commitments, mut stage1, prev_msg_hash): (Digest512, Stage1Contents, Digest256) = read_file(
         "A",
         &format!("Commitment: {}\n\n\
                   Write this commitment down on paper.\n\n\
                   Then type the above commitment into the networked machine.\n\n\
-                  The networked machine should produce disc 'A'.\n\n\
-                  When disc 'A' is in the DVD drive, press [ENTER].", comm.to_string()),
+                  The networked machine should produce file 'A'.\n\n\
+                  When file 'A' is in ready, press [ENTER].", comm.to_string()),
         |f, p| -> Result<_, bincode::rustc_serialize::DecodingError> {
             let hash_of_commitments: Digest512 = try!(decode_from(f, Infinite));
             let stage: Stage1Contents = try!(decode_from(f, Infinite));
@@ -96,7 +99,7 @@ fn main() {
     println!("Please wait while disc 'B' is computed... This should take 30 minutes to an hour.");
     stage1.transform(&privkey);
 
-    let (mut stage2, prev_msg_hash): (Stage2Contents, Digest256) = exchange_disc(
+    let (mut stage2, prev_msg_hash): (Stage2Contents, Digest256) = exchange_file(
         "B",
         "C",
         |f| {
@@ -119,7 +122,7 @@ fn main() {
     println!("Please wait while disc 'D' is computed... This should take 45 to 90 minutes.");
     stage2.transform(&privkey);
 
-    let (mut stage3, prev_msg_hash): (Stage3Contents, Digest256) = exchange_disc(
+    let (mut stage3, prev_msg_hash): (Stage3Contents, Digest256) = exchange_file(
         "D",
         "E",
         |f| {
@@ -140,7 +143,7 @@ fn main() {
     println!("Please wait while disc 'F' is computed... This should take 15-30 minutes.");
     stage3.transform(&privkey);
 
-    write_disc(
+    write_file(
         "F",
         |f| {
             try!(encode_into(&stage3, f, Infinite));

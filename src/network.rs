@@ -12,8 +12,8 @@ mod protocol;
 use self::protocol::*;
 mod consts;
 use self::consts::*;
-mod dvd;
-use self::dvd::*;
+mod file;
+use self::file::*;
 
 use rand::Rng;
 use std::io::{Read,Write};
@@ -212,7 +212,7 @@ fn main() {
     let stage1_before = handler.read::<Stage1Contents>();
     let prev_msg_hash = handler.read::<Digest256>();
 
-    let (pubkey, nizks, stage1_after, ihash): (PublicKey, PublicKeyNizks, Stage1Contents, Digest256) = exchange_disc(
+    let (pubkey, nizks, stage1_after, ihash): (PublicKey, PublicKeyNizks, Stage1Contents, Digest256) = exchange_file(
         "A",
         "B",
         |f| -> Result<(), bincode::rustc_serialize::EncodingError> {
@@ -244,7 +244,7 @@ fn main() {
     let stage2_before = handler.read::<Stage2Contents>();
     let prev_msg_hash = handler.read::<Digest256>();
 
-    let (stage2_after, ihash): (Stage2Contents, Digest256) = exchange_disc(
+    let (stage2_after, ihash): (Stage2Contents, Digest256) = exchange_file(
         "C",
         "D",
         |f| {
@@ -271,7 +271,7 @@ fn main() {
     let stage3_before = handler.read::<Stage3Contents>();
     let prev_msg_hash = handler.read::<Digest256>();
 
-    let (stage3_after, ihash): (Stage3Contents, Digest256) = exchange_disc(
+    let (stage3_after, ihash): (Stage3Contents, Digest256) = exchange_file(
         "E",
         "F",
         |f| {
@@ -293,8 +293,6 @@ fn main() {
 
     drop(stage3_before);
     drop(stage3_after);
-
-    eject();
 
     loop {
         prompt("Done! Both machines can be shut down.\n\
