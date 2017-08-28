@@ -1,18 +1,15 @@
-use std::io::{Read, Write, self};
-use std::thread;
-use std::time::Duration;
+use std::io::{Read, self};
 use std::fs::{self, File};
-use std::process::Command;
 use std::env;
-use std::path::PathBuf;
+use std::path::Path;
 use std::string::String;
 use std::option::Option;
 use protocol::*;
 
 const REMOTEPATH_ALPINE_RELEASE: &'static str = ".alpine-release";
 const REMOTEPATH_TEST_BURN: &'static str = "mpc_testburn";
-const FILE_PREFIX: &'static str = "result-";
-const TMP_RESULT_LOC: &'static str = "mpc-result";
+const FILE_PREFIX: &'static str = "/result-";
+const TMP_RESULT_LOC: &'static str = "/mpc-result";
 
 /// Clears the entire terminal screen, moves cursor to top left.
 pub fn reset() {
@@ -39,8 +36,18 @@ pub fn prompt(s: &str) -> String {
 pub fn getFilePath(suffix: &str) -> Option<String>{
     match env::home_dir() {
         Some(path) => {
-            let mut p = format!("{}{}{}{}", path.to_str().unwrap(), TMP_RESULT_LOC, FILE_PREFIX, suffix);
-            return Some(p);
+            let dir = format!("{}{}", path.to_str().unwrap(), TMP_RESULT_LOC);
+            match fs::create_dir_all(Path::new(dir.as_str())){
+                Ok(_) => {
+                    let p = format!("{}{}{}", dir, FILE_PREFIX, suffix);
+                    println!("file path: {}", p);
+                    return Some(p);
+                },
+                _ => {
+                    return None;
+                }
+            }
+            
         },
         None => {
             return None;
@@ -70,41 +77,21 @@ impl Drop for TemporaryFile {
     fn drop(&mut self) {
         // Close the file descriptor...
         self.f = None;
-
-        // Delete the file.
-        loop {
-            if fs::remove_file(&self.path).is_ok() {
-                return;
-            }
-            println!("Failed to remove file! Trying again...");
-            thread::sleep(Duration::from_secs(1));
-        }
     }
-}
-
-pub fn write_to_file(file_path: &str) -> bool {
-    println!("Saving...");
-    File::create(file_path);
-    return true;
 }
 
 pub enum FileStatus {
     File(TemporaryFile),
-    Empty,
     Error
 }
 
 pub fn read_from_file(file_path: &str) -> FileStatus {
     match File::open(file_path) {
         Ok(f) => {
-            if f.metadata().is_ok() && f.metadata().unwrap().len() == 0{
-                return FileStatus::Empty
-            } else {
-                return FileStatus::File(TemporaryFile {
-                    path: file_path.into(),
-                    f: Some(f)
-                })
-            }
+            return FileStatus::File(TemporaryFile {
+                path: file_path.into(),
+                f: Some(f)
+            })
         },
         Err(_) => {
             println!("Error opening file at path {}", file_path);
@@ -143,17 +130,9 @@ pub fn exchange_file<
         write_down_file_please(&h, our_file);
     }
 
-    let mut already_saved = false;
-
     loop {
-        if already_saved {
-            prompt(&format!("Insert file '{}' from the other machine. If the burn of file '{}' failed,\n\
-                             insert another blank file to burn it again. Press [ENTER] when ready.",
-                            their_file, our_file));
-        } else {
-            prompt(&format!("File '{}' will be saved. Press [ENTER] to start.",
-                            our_file));
-        }
+        prompt(&format!("Insert file '{}' from the other machine as '{}'. Press [ENTER] when ready.",
+                        their_file, getFilePath(their_file).unwrap().as_str()));
 
         match read_from_file(getFilePath(their_file).unwrap().as_str()) {
             FileStatus::File(mut f) => {
@@ -168,8 +147,6 @@ pub fn exchange_file<
 
                 match their_cb(&mut f, h) {
                     Ok(data) => {
-                        //let _ = fs::remove_file(newfile_localpath);
-
                         return data;
                     },
                     Err(_) => {
@@ -178,11 +155,6 @@ pub fn exchange_file<
                                          press [ENTER].", their_file, their_file));
                     }
                 }
-            },
-            FileStatus::Empty => {
-                write_to_file(newfile_localpath);
-                prompt(&format!("file {} has been created. Label the file and transfer it to the\n\
-                                 other machine. Press [ENTER] when the drive is clear.", our_file));
             },
             FileStatus::Error => {
                 prompt(&format!("Error!!!"));
@@ -210,25 +182,13 @@ pub fn write_file<
         let h = hash_of_file(&mut newfile);
         write_down_file_please(&h, our_file);
     }
-
-    
-    match read_from_file(newfile_localpath) {
-        FileStatus::File(mut f) => {
-            write_to_file(newfile_localpath);
-            prompt(&format!("file {} has been burned. Label the file and transfer it to the\n\
-                             other machine. Press [ENTER] when the drive is clear.", our_file));
-        },
-        _ => {
-            //TODO: handle error
-        }
-    }
 }
 
 pub fn read_file<T, R, F: Fn(&mut TemporaryFile, Option<Digest256>) -> Result<T, R>>(name: &str, message: &str, cb: F) -> T {
     prompt(message);
 
     loop {
-        match read_from_file(name) {
+        match read_from_file(getFilePath(name).unwrap().as_str()) {
             FileStatus::File(mut f) => {
                 let h;
                 if ::ASK_USER_TO_RECORD_HASHES {
@@ -249,12 +209,8 @@ pub fn read_file<T, R, F: Fn(&mut TemporaryFile, Option<Digest256>) -> Result<T,
                     }
                 }
             },
-            FileStatus::Empty => {
-                prompt(&format!("You placed a blank File, but we're expecting \
-                                 file '{}'.\n\n{}", name, message));
-            },
             FileStatus::Error => {
-                prompt(&format!("ERROR"));
+                prompt(&format!("Error reading file {}", name));
             }
         }
     }

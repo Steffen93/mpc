@@ -68,8 +68,6 @@ fn get_entropy() -> [u32; 8] {
 }
 
 fn main() {
-    // prompt("Press [ENTER] when you're ready to perform diagnostics of the DVD drive.");
-    // perform_diagnostics();
     prompt("Press [ENTER] when you're ready to begin the ceremony.");
 
     let mut chacha_rng = rand::chacha::ChaChaRng::from_seed(&get_entropy());
